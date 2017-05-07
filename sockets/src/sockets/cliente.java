@@ -2,6 +2,8 @@ package sockets;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -10,6 +12,7 @@ import java.io.Serializable;
 
 import javax.swing.*;
 import java.net.*;
+import java.util.ArrayList;
 public class cliente {
 
 	public static void main(String[] args) {
@@ -31,24 +34,50 @@ class MarcoCliente extends JFrame{
 		add(milamina);
 		
 		setVisible(true);
+		addWindowListener(new EnvioOnline());
 		}	
 	
 }
-
+///--------envio de señal online
+class EnvioOnline extends WindowAdapter{
+	
+	public void windowOpened(WindowEvent e){
+		try{
+			
+			Socket mio= new Socket("192.168.1.133",999);
+			paqueteEnvio datos = new paqueteEnvio();
+			datos.setMensaje("Online");
+			ObjectOutputStream pack_dato= new ObjectOutputStream(mio.getOutputStream());
+			pack_dato.writeObject(datos);
+			mio.close();
+			
+			
+		}catch(Exception excep){}
+	}
+	
+}
+////////----------
 class LaminaMarcoCliente extends JPanel implements Runnable{
 	
 	public LaminaMarcoCliente(){
+		String nick_usuario=JOptionPane.showInputDialog("Nick:..");
 		
-		nick= new JTextField(5);
+		
+		JLabel n_nick=new JLabel("Nick: ");
+		add(n_nick);
+		nick= new JLabel();
+		nick.setText(nick_usuario);
 		add(nick);
 		
 		
 		
-		JLabel texto=new JLabel("Chat");
+		JLabel texto=new JLabel("-->Online:");
 		
 		add(texto);
+		//---------------
+		ip= new JComboBox();
 		
-		ip= new JTextField(8);
+		//-----------------------
 		add(ip);
 		
 		campo_chat=new JTextArea(12,20);
@@ -70,35 +99,25 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
-			//System.out.println(campo1.getText());
+			
+			campo_chat.append("\n"+campo1.getText());
 			try {
-				//------el socket es el flujo de datos de salida
-				//-----eso lo mandamos como parametro en la funcion
+				
 				Socket mensaje= new Socket("192.168.1.133",999);
 				paqueteEnvio datos= new paqueteEnvio();
-				//--captura de los datos
+				
 				datos.setNick(nick.getText());
-				datos.setIp(ip.getText());
+				datos.setIp(ip.getSelectedItem().toString());
 				datos.setMensaje(campo1.getText());
-				//------construccion del socket para los objetos
+			
 				ObjectOutputStream pack= new ObjectOutputStream(mensaje.getOutputStream());
 				pack.writeObject(datos);
 				pack.close();
-				//---------------------
-				
-				
-				//DataOutputStream flujo_salida = new DataOutputStream(mensaje.getOutputStream());
-				//flujo_salida.writeUTF(campo1.getText());//en el flujo de datos de salidad va a viajar lo del textfield
-				//flujo_salida.close();//cerramos el flujo de dato
-				
 				
 				
 			} catch (UnknownHostException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
 				System.out.println(e.getMessage());
 			}	
 		}
@@ -108,7 +127,11 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 		
 	private JTextArea campo_chat;	
 	
-	private JTextField campo1,nick,ip;
+	private JTextField campo1;
+	
+	private JComboBox ip;
+	
+	private JLabel nick;
 	
 	private JButton miboton;
 
@@ -119,12 +142,23 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 			Socket cliente;
 			paqueteEnvio pack_recibido;
 			while(true){
-				cliente=servidor_cliente.accept();//acpetar las conexiones dle exterior
+				cliente=servidor_cliente.accept();//aceptar las conexiones dle exterior
 				ObjectInputStream flujo_entrada= new ObjectInputStream(cliente.getInputStream());
 				pack_recibido=(paqueteEnvio) flujo_entrada.readObject();
 				
-				campo_chat.append("\n"+pack_recibido.getNick()+": "+pack_recibido.getMensaje());
-				
+				if(!pack_recibido.getMensaje().equals("Online")){
+					campo_chat.append("\n"+pack_recibido.getNick()+": "+pack_recibido.getMensaje());
+				}else{
+					//-----agregar Ips activas
+					
+					ArrayList <String> IpsMenu= new ArrayList<String>();
+					IpsMenu= pack_recibido.getIps();
+					ip.removeAllItems();//borrar antes de agregar el arrayList actualizado
+					for(String z:IpsMenu){
+						ip.addItem(z);
+					}
+					
+				}
 			}
 			
 			
@@ -135,9 +169,18 @@ class LaminaMarcoCliente extends JPanel implements Runnable{
 }
 class paqueteEnvio implements Serializable{
 	private String nick,ip,mensaje;
+	private ArrayList<String> Ips;
 
 	public String getNick() {
 		return nick;
+	}
+
+	public ArrayList<String> getIps() {
+		return Ips;
+	}
+
+	public void setIps(ArrayList<String> ips) {
+		Ips = ips;
 	}
 
 	public void setNick(String nick) {
